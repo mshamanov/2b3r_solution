@@ -1,43 +1,49 @@
 import {encoded, translations} from './data.js';
 
-const ignoreFieldSet = new Set(['groupId', 'service', 'formatSize', 'ca']);
-const uniqueIds = new Set();
-
-function addUniqueId(id) {
-    if (!id) {
-        return;
-    }
-
-    uniqueIds.add(id);
-}
-
-function translate(item) {
-    for (const key in item) {
-        if (!ignoreFieldSet.has(key)) {
-            const id = item[key];
-            const translation = translations[id];
-            if (translation === undefined) {
-                addUniqueId(id);
-            } else {
-                item[key] = translation;
-            }
-        }
-    }
-
-    return item;
-}
-
 function decode(data) {
     if (!data || !Array.isArray(data)) {
         return;
     }
 
-    return data.map(translate);
+    const ignoreFieldSet = new Set(['groupId', 'service', 'formatSize', 'ca']);
+    const uniqueIdsMap = new Map();
+
+    const addUniqueId = id => {
+        if (!id) {
+            return;
+        }
+
+        uniqueIdsMap.set(id, (uniqueIdsMap.get(id) ?? 0) + 1);
+    };
+
+    const translate = item => {
+        for (const key in item) {
+            if (!ignoreFieldSet.has(key)) {
+                const id = item[key];
+                const translation = translations[id];
+                if (translation !== undefined) {
+                    item[key] = translation;
+                }
+                addUniqueId(id);
+            }
+        }
+
+        return item;
+    };
+
+    const decoded = data.map(translate);
+    const unique = [...uniqueIdsMap.entries()].filter(([_, v]) => v === 1)
+        .map(([k, _]) => k);
+
+    return {
+        decoded,
+        unique
+    };
 }
 
-const decoded = decode(encoded);
+const {decoded, unique} = decode(encoded);
 
 // console.log('Let\'s rock');
 // console.log(encoded, translations);
 console.log(decoded);
-console.log(uniqueIds);
+console.log(unique);

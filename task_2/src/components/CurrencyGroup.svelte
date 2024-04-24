@@ -60,7 +60,6 @@
 
             if (response.ok) {
                 let data = await response.json();
-                console.log(data);
                 return data;
             } else {
                 throw Error(`Fetch data error: ${response.statusText} (status: ${response.status})`);

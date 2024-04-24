@@ -146,7 +146,5 @@
             transform: scale(0.9);
             color: #535bf2;
         }
-
-
     }
 </style>

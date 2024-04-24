@@ -1,19 +1,24 @@
 <script lang="ts">
     import type {Currency} from "../models/Currency";
     import CurrencyForm from "./CurrencyForm.svelte";
-    import {CurrenciesStore} from "../stores/currencies";
     import type {CurrencyAmount} from "../models/CurrencyAmount";
     import type {CurrencyFetchData} from "../models/CurrencyFetchData";
+    import {CurrenciesStore} from "../stores/currencies";
+    import {createEventDispatcher} from "svelte";
+
+    const dispatch = createEventDispatcher();
 
     const usd: Currency =
         $CurrenciesStore.data.find(item => item.code === "USD")!;
 
     let fetchedData: CurrencyFetchData | null = null;
+    let status: "pending" | "loading" | "error" | "success" = "pending";
 
     let primaryData: CurrencyAmount = {amount: 1, currency: usd};
     let secondaryData: CurrencyAmount = {amount: 1, currency: usd};
 
-    $: rates = fetchedData === null ? null : `1 ${primaryData.currency.code} = ${fetchedData.rates[secondaryData.currency.code]} ${secondaryData.currency.code}`;
+    $: rates = !fetchedData ? null :
+        `1 ${primaryData.currency.code} = ${fetchedData.rates[secondaryData.currency.code]} ${secondaryData.currency.code}`;
 
     const primaryHandler = (value: CurrencyAmount) => {
         primaryData = value;
@@ -49,7 +54,10 @@
     }
 
     const fetchCurrencyData = async (currency: Currency) => {
+        status = "loading";
+
         if (fetchedData && fetchedData["base_code"] === currency.code) {
+            status = "success";
             return fetchedData;
         }
 
@@ -57,15 +65,15 @@
         const fetchUrl = api.replace("{currencyId}", currency.code);
         try {
             const response = await fetch(fetchUrl);
-
             if (response.ok) {
-                let data = await response.json();
-                return data;
+                status = "success";
+                return response.json();
             } else {
                 throw Error(`Fetch data error: ${response.statusText} (status: ${response.status})`);
             }
         } catch (error) {
-            console.error(error);
+            status = "error";
+            dispatch("show-error", error);
         }
     }
 </script>
@@ -79,7 +87,7 @@
     <CurrencyForm amount={primaryData.amount.toString()}
                   selected={primaryData.currency}
                   onChange={primaryHandler} />
-    <div class="arrows">
+    <div class={`arrows ${status === "loading" ? "scale" : ""}`}>
         <svg xmlns="http://www.w3.org/2000/svg"
              width="50"
              height="50"
@@ -111,5 +119,34 @@
         padding: 0 20px;
         border-radius: 5px;
         margin-bottom: 15px;
+    }
+
+
+    .spin {
+        animation: spin 1s infinite linear;
+    }
+
+    .scale {
+        animation: scale 0.5s infinite linear;
+    }
+
+    @keyframes spin {
+        to {
+            transform: rotate(360deg);
+        }
+    }
+
+    @keyframes scale {
+        33% {
+            transform: scale(1.1);
+            color: #747bff;
+        }
+
+        100% {
+            transform: scale(0.9);
+            color: #535bf2;
+        }
+
+
     }
 </style>

@@ -40,7 +40,7 @@
             return;
         }
 
-        timeoutId = setTimeout(() => handleChange(), 2000);
+        timeoutId = setTimeout(() => handleChange(), 1000);
     };
 </script>
 

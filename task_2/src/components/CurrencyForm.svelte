@@ -7,12 +7,12 @@
     const currencies: Currency[] = $CurrenciesStore.data;
 
     export let onChange: (value: CurrencyAmount) => void;
-    export let amount: number = 0;
+    export let amount: string = "0";
     export let selected: Currency;
 
     const handleChange = () => {
         onChange({
-            amount: amount,
+            amount: Number(amount),
             currency: selected
         });
     }
@@ -34,14 +34,22 @@
     const inputHandler: ChangeEventHandler<HTMLInputElement> = () => {
         clearTimeout(timeoutId);
 
+        amount = amount.replaceAll(/[^0-9.]/g, '');
+
+        if (!isFinite(Number(amount))) {
+            return;
+        }
+
         timeoutId = setTimeout(() => handleChange(), 2000);
     };
 </script>
 
 <div class="input-group">
-    <label for="amount"></label>
-    <input id="amount" type="text" bind:value={amount} placeholder="0" min="0"
-           pattern="[0-9]*" on:input={inputHandler} />
+    <label class="currency-label" for="amount">{selected.description}
+        ({selected.country})</label>
+    <input id="amount" type="text" inputmode="decimal" bind:value={amount}
+           placeholder="0" min="0"
+           pattern="[0-9.]*" on:input={inputHandler} />
     <select on:change={handleSelect}>
         {#each currencies as item (item.code)}
             <option value={item.code}
@@ -54,12 +62,22 @@
 </div>
 
 <style>
+    .currency-label {
+        position: absolute;
+        top: -12px;
+        font-size: 0.75rem;
+        background: var(--background-color);
+        border-radius: 5px;
+        padding: 3px 10px;
+    }
+
     .input-group {
-        display: flex;
         width: 100%;
+        display: flex;
+        position: relative;
         align-items: center;
         justify-content: space-between;
-        padding: 10px;
+        padding: 15px 10px;
         border-radius: 8px;
         border: 1px solid rgba(0, 0, 0, 0.5);
     }
@@ -78,8 +96,8 @@
 
     select {
         border: none;
-        font-size: 1.2rem;
-        padding: 15px;
+        font-size: 16px;
+        padding: 10px;
         border-radius: 5px;
     }
 </style>

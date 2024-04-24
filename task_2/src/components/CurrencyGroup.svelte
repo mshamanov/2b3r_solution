@@ -13,6 +13,8 @@
     let primaryData: CurrencyAmount = {amount: 1, currency: usd};
     let secondaryData: CurrencyAmount = {amount: 1, currency: usd};
 
+    $: rates = fetchedData === null ? null : `1 ${primaryData.currency.code} = ${fetchedData.rates[secondaryData.currency.code]} ${secondaryData.currency.code}`;
+
     const primaryHandler = (value: CurrencyAmount) => {
         primaryData = value;
 
@@ -20,7 +22,7 @@
             fetchedData = data;
             const currId = secondaryData.currency.code;
             if (fetchedData) {
-                secondaryData.amount = fetchedData.rates[currId] * primaryData.amount;
+                secondaryData.amount = primaryData.amount * fetchedData.rates[currId];
             }
         });
     }
@@ -42,7 +44,7 @@
             primaryData.amount = secondaryData.amount / fetchedData.rates[currId];
         } else {
             const currId = secondaryData.currency.code;
-            secondaryData.amount = fetchedData.rates[currId] * primaryData.amount;
+            secondaryData.amount = primaryData.amount * fetchedData.rates[currId];
         }
     }
 
@@ -70,7 +72,12 @@
 </script>
 
 <div class="content">
-    <CurrencyForm amount={primaryData.amount}
+    {#if rates}
+        <div class="currency-rate-info">
+            {rates}
+        </div>
+    {/if}
+    <CurrencyForm amount={primaryData.amount.toString()}
                   selected={primaryData.currency}
                   onChange={primaryHandler} />
     <div class="arrows">
@@ -84,7 +91,7 @@
                   d="M11.5 15a.5.5 0 0 0 .5-.5V2.707l3.146 3.147a.5.5 0 0 0 .708-.708l-4-4a.5.5 0 0 0-.708 0l-4 4a.5.5 0 1 0 .708.708L11 2.707V14.5a.5.5 0 0 0 .5.5m-7-14a.5.5 0 0 1 .5.5v11.793l3.146-3.147a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 .708-.708L4 13.293V1.5a.5.5 0 0 1 .5-.5" />
         </svg>
     </div>
-    <CurrencyForm amount={secondaryData.amount}
+    <CurrencyForm amount={secondaryData.amount.toString()}
                   selected={secondaryData.currency}
                   onChange={secondaryHandler} />
 </div>
@@ -96,5 +103,14 @@
         justify-content: space-evenly;
         align-items: center;
         gap: 15px;
+    }
+
+    .currency-rate-info {
+        font-size: 0.8rem;
+        background-color: #646cff;
+        color: #fff;
+        padding: 0 20px;
+        border-radius: 5px;
+        margin-bottom: 15px;
     }
 </style>

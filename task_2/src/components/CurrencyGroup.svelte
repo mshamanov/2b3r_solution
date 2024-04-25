@@ -47,15 +47,6 @@
         }
     }
 
-    const swapCurrencies = async () => {
-        swapClass = "swap";
-
-        [primaryData, secondaryData] = [secondaryData, primaryData];
-        await fetchExchangeRatesAndUpdate();
-
-        setTimeout(() => swapClass = "", 1000);
-    }
-
     const updatePrimaryUponSecondary = () => {
         if (status !== "success") {
             return;
@@ -72,6 +63,22 @@
 
         const code = secondaryData.currency.code;
         secondaryData.amount = primaryData.amount * fetchedData.rates[code];
+    }
+
+    const swapCurrencies = () => {
+        if (status !== "success") {
+            return;
+        }
+
+        swapClass = "swap";
+        [primaryData, secondaryData] = [secondaryData, primaryData];
+        setTimeout(() => swapClass = "", 1000);
+    }
+
+    const fetchExchangeRatesAndSwap = async () => {
+        await fetchExchangeRates(secondaryData.currency);
+        swapCurrencies();
+        updateSecondaryUponPrimary();
     }
 
     async function fetchExchangeRatesAndUpdate() {
@@ -121,7 +128,7 @@
             disabled={status === "loading" || swapClass !== ""}
             class={`swap-btn ${status === "loading" ? "scale" : ""} ${swapClass}`}
             title="Swap currencies" aria-label="Swap currencies"
-            on:click={swapCurrencies}>
+            on:click={fetchExchangeRatesAndSwap}>
         <svg xmlns="http://www.w3.org/2000/svg"
              width="50"
              height="50"

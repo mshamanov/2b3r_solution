@@ -92,7 +92,7 @@
                   selected={primaryData.currency}
                   onChange={primaryHandler} />
     <button type="button"
-            disabled={status === "loading"}
+            disabled={status === "loading" || swapClass !== ""}
             class={`swap-btn ${status === "loading" ? "scale" : ""} ${swapClass}`}
             title="Swap currencies" aria-label="Swap currencies"
             on:click={swapCurrencies}>

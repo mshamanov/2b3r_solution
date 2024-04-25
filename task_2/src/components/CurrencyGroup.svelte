@@ -13,34 +13,37 @@
 
     let fetchedData: CurrencyFetchData;
     let status: "pending" | "loading" | "error" | "success" = "pending";
+    let exchangeRates: string | null = null;
     let swapClass = "";
 
     let primaryData: CurrencyAmount = {amount: 1, currency: usd};
     let secondaryData: CurrencyAmount = {amount: 1, currency: usd};
 
-    $: rates = !fetchedData ? null :
-        `1 ${primaryData.currency.code} = ${fetchedData.rates[secondaryData.currency.code]} ${secondaryData.currency.code}`;
+    $: {
+        if (status === "success") {
+            const primaryCode = primaryData.currency.code;
+            const secondaryCode = secondaryData.currency.code;
+            const rates = fetchedData.rates[secondaryCode];
+            exchangeRates = `1 ${primaryCode} = ${rates} ${secondaryCode}`;
+        } else if (status === "error") {
+            exchangeRates = null;
+        }
+    }
 
     const primaryHandler = async (value: CurrencyAmount) => {
         primaryData = value;
-        await loadPrimaryCurrencyData();
+        await fetchExchangeRatesAndUpdate();
     }
 
     const secondaryHandler = (value: CurrencyAmount) => {
-        if (status === "error") {
-            return;
-        }
-
         const previousSecondaryCode = secondaryData.currency.code;
         const currentSecondaryCode = value.currency.code;
         secondaryData = value;
 
         if (currentSecondaryCode === previousSecondaryCode) {
-            primaryData.amount =
-                secondaryData.amount / fetchedData.rates[currentSecondaryCode];
+            updatePrimaryUponSecondary();
         } else {
-            secondaryData.amount =
-                primaryData.amount * fetchedData.rates[currentSecondaryCode];
+            updateSecondaryUponPrimary();
         }
     }
 
@@ -48,48 +51,67 @@
         swapClass = "swap";
 
         [primaryData, secondaryData] = [secondaryData, primaryData];
-        await loadPrimaryCurrencyData();
+        await fetchExchangeRatesAndUpdate();
 
         setTimeout(() => swapClass = "", 1000);
     }
 
-    async function loadPrimaryCurrencyData() {
+    const updatePrimaryUponSecondary = () => {
+        if (status !== "success") {
+            return;
+        }
+
+        const code = secondaryData.currency.code;
+        primaryData.amount = secondaryData.amount / fetchedData.rates[code];
+    }
+
+    const updateSecondaryUponPrimary = () => {
+        if (status !== "success") {
+            return;
+        }
+
+        const code = secondaryData.currency.code;
+        secondaryData.amount = primaryData.amount * fetchedData.rates[code];
+    }
+
+    async function fetchExchangeRatesAndUpdate() {
+        await fetchExchangeRates(primaryData.currency);
+        updateSecondaryUponPrimary();
+    }
+
+    async function fetchExchangeRates(currency: Currency) {
+        status = "loading";
         try {
-            fetchedData = await fetchRatesFromApi(primaryData.currency);
-            const code = secondaryData.currency.code;
-            secondaryData.amount = primaryData.amount * fetchedData.rates[code];
+            if (fetchedData && fetchedData["base_code"] === currency.code) {
+                status = "success";
+            } else {
+                const api = $CurrenciesStore.api;
+                const fetchUrl = api.replace("{currencyId}", currency.code);
+                fetchedData = await fetchApi(fetchUrl);
+            }
+            status = "success";
         } catch (error) {
             status = "error";
             dispatch("show-error", error);
         }
     }
 
-    const fetchRatesFromApi = async (currency: Currency) => {
-        status = "loading";
-
-        if (fetchedData && fetchedData["base_code"] === currency.code) {
-            status = "success";
-            return fetchedData;
-        }
-
-        const api = $CurrenciesStore.api;
-        const fetchUrl = api.replace("{currencyId}", currency.code);
-        const response = await fetch(fetchUrl);
+    const fetchApi = async (input: RequestInfo | URL, init?: RequestInit) => {
+        const response = await fetch(input);
         if (response.ok) {
-            status = "success";
             return response.json();
         } else {
             throw Error(`Fetch data error: ${response.statusText} (status: ${response.status})`);
         }
     }
 
-    onMount(async () => await loadPrimaryCurrencyData());
+    onMount(async () => await fetchExchangeRatesAndUpdate());
 </script>
 
 <div class="content">
-    {#if rates}
+    {#if exchangeRates}
         <div class="currency-rate-info">
-            {rates}
+            {exchangeRates}
         </div>
     {/if}
     <CurrencyForm amount={primaryData.amount.toFixed(2)}

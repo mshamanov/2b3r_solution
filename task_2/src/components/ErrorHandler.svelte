@@ -20,7 +20,7 @@
                     <button type="button" title="Close error"
                             aria-label="Close error"
                             on:click={() => dispatch("hide-error")}>
-                        <i class="bi bi-x-circle"></i>
+                        &#x2716;
                     </button>
                 </span>
         </div>

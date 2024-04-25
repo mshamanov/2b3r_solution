@@ -4,15 +4,16 @@
     import type {CurrencyAmount} from "../models/CurrencyAmount";
     import type {CurrencyFetchData} from "../models/CurrencyFetchData";
     import {CurrenciesStore} from "../stores/currencies";
-    import {createEventDispatcher} from "svelte";
+    import {createEventDispatcher, onMount} from "svelte";
 
     const dispatch = createEventDispatcher();
 
     const usd: Currency =
         $CurrenciesStore.data.find(item => item.code === "USD")!;
 
-    let fetchedData: CurrencyFetchData | null = null;
+    let fetchedData: CurrencyFetchData;
     let status: "pending" | "loading" | "error" | "success" = "pending";
+    let swapClass = "";
 
     let primaryData: CurrencyAmount = {amount: 1, currency: usd};
     let secondaryData: CurrencyAmount = {amount: 1, currency: usd};
@@ -20,40 +21,46 @@
     $: rates = !fetchedData ? null :
         `1 ${primaryData.currency.code} = ${fetchedData.rates[secondaryData.currency.code]} ${secondaryData.currency.code}`;
 
-    const primaryHandler = (value: CurrencyAmount) => {
+    const primaryHandler = async (value: CurrencyAmount) => {
         primaryData = value;
-
-        fetchCurrencyData(primaryData.currency).then(data => {
-            fetchedData = data;
-            const currId = secondaryData.currency.code;
-            if (fetchedData) {
-                secondaryData.amount = primaryData.amount * fetchedData.rates[currId];
-            }
-        });
+        await loadPrimaryCurrencyData();
     }
 
     const secondaryHandler = (value: CurrencyAmount) => {
-        let oldSecondaryData = secondaryData;
+        const previousSecondaryCode = secondaryData.currency.code;
+        const currentSecondaryCode = value.currency.code;
         secondaryData = value;
 
-        if (fetchedData === null) {
-            fetchCurrencyData(primaryData.currency).then(data => {
-                fetchedData = data;
-                if (fetchedData) {
-                    const currId = secondaryData.currency.code;
-                    primaryData.amount = secondaryData.amount / fetchedData.rates[currId];
-                }
-            });
-        } else if (oldSecondaryData.currency.code === secondaryData.currency.code) {
-            const currId = secondaryData.currency.code;
-            primaryData.amount = secondaryData.amount / fetchedData.rates[currId];
+        if (currentSecondaryCode === previousSecondaryCode) {
+            primaryData.amount =
+                secondaryData.amount / fetchedData.rates[currentSecondaryCode];
         } else {
-            const currId = secondaryData.currency.code;
-            secondaryData.amount = primaryData.amount * fetchedData.rates[currId];
+            secondaryData.amount =
+                primaryData.amount * fetchedData.rates[currentSecondaryCode];
         }
     }
 
-    const fetchCurrencyData = async (currency: Currency) => {
+    const swapCurrencies = async () => {
+        swapClass = "swap";
+
+        [primaryData, secondaryData] = [secondaryData, primaryData];
+        await loadPrimaryCurrencyData();
+
+        setTimeout(() => swapClass = "", 1000);
+    }
+
+    async function loadPrimaryCurrencyData() {
+        try {
+            fetchedData = await fetchRatesFromApi(primaryData.currency);
+            const code = secondaryData.currency.code;
+            secondaryData.amount = primaryData.amount * fetchedData.rates[code];
+        } catch (error) {
+            status = "error";
+            dispatch("show-error", error);
+        }
+    }
+
+    const fetchRatesFromApi = async (currency: Currency) => {
         status = "loading";
 
         if (fetchedData && fetchedData["base_code"] === currency.code) {
@@ -63,19 +70,16 @@
 
         const api = $CurrenciesStore.api;
         const fetchUrl = api.replace("{currencyId}", currency.code);
-        try {
-            const response = await fetch(fetchUrl);
-            if (response.ok) {
-                status = "success";
-                return response.json();
-            } else {
-                throw Error(`Fetch data error: ${response.statusText} (status: ${response.status})`);
-            }
-        } catch (error) {
-            status = "error";
-            dispatch("show-error", error);
+        const response = await fetch(fetchUrl);
+        if (response.ok) {
+            status = "success";
+            return response.json();
+        } else {
+            throw Error(`Fetch data error: ${response.statusText} (status: ${response.status})`);
         }
     }
+
+    onMount(async () => await loadPrimaryCurrencyData());
 </script>
 
 <div class="content">
@@ -84,10 +88,14 @@
             {rates}
         </div>
     {/if}
-    <CurrencyForm amount={primaryData.amount.toString()}
+    <CurrencyForm amount={primaryData.amount.toFixed(2)}
                   selected={primaryData.currency}
                   onChange={primaryHandler} />
-    <div class={`arrows ${status === "loading" ? "scale" : ""}`}>
+    <button type="button"
+            disabled={status === "loading"}
+            class={`swap-btn ${status === "loading" ? "scale" : ""} ${swapClass}`}
+            title="Swap currencies" aria-label="Swap currencies"
+            on:click={swapCurrencies}>
         <svg xmlns="http://www.w3.org/2000/svg"
              width="50"
              height="50"
@@ -97,8 +105,8 @@
             <path fill-rule="evenodd"
                   d="M11.5 15a.5.5 0 0 0 .5-.5V2.707l3.146 3.147a.5.5 0 0 0 .708-.708l-4-4a.5.5 0 0 0-.708 0l-4 4a.5.5 0 1 0 .708.708L11 2.707V14.5a.5.5 0 0 0 .5.5m-7-14a.5.5 0 0 1 .5.5v11.793l3.146-3.147a.5.5 0 0 1 .708.708l-4 4a.5.5 0 0 1-.708 0l-4-4a.5.5 0 0 1 .708-.708L4 13.293V1.5a.5.5 0 0 1 .5-.5" />
         </svg>
-    </div>
-    <CurrencyForm amount={secondaryData.amount.toString()}
+    </button>
+    <CurrencyForm amount={secondaryData.amount.toFixed(2)}
                   selected={secondaryData.currency}
                   onChange={secondaryHandler} />
 </div>
@@ -121,18 +129,29 @@
         margin-bottom: 15px;
     }
 
+    .swap-btn {
+        margin: 10px 0 15px;
+        border: none;
+        background: none;
+    }
 
-    .spin {
-        animation: spin 1s infinite linear;
+    .swap-btn:hover {
+        color: #535bf2;
+        cursor: pointer;
+    }
+
+    .swap {
+        animation: rotate-180-r 1s none;
     }
 
     .scale {
         animation: scale 0.5s infinite linear;
     }
 
-    @keyframes spin {
+    @keyframes rotate-180-r {
         to {
-            transform: rotate(360deg);
+            transform-origin: 50% 47%;
+            transform: rotate(180deg);
         }
     }
 

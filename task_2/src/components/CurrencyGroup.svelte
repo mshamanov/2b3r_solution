@@ -135,7 +135,7 @@
         background: none;
     }
 
-    .swap-btn:hover {
+    .swap-btn:not(:disabled):hover {
         color: #535bf2;
         cursor: pointer;
     }

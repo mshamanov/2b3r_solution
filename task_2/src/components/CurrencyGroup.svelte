@@ -27,6 +27,10 @@
     }
 
     const secondaryHandler = (value: CurrencyAmount) => {
+        if (status === "error") {
+            return;
+        }
+
         const previousSecondaryCode = secondaryData.currency.code;
         const currentSecondaryCode = value.currency.code;
         secondaryData = value;

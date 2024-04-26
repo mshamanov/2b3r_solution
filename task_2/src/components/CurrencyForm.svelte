@@ -17,6 +17,12 @@
         });
     }
 
+    $: amount = trimByPattern(amount);
+
+    function trimByPattern(amount: string) {
+        return amount.replace(/[^0-9.]/g, '').replace(/(\.\d{1,5}).*|(\.)\.+/g, "$1$2");
+    }
+
     const handleSelect: ChangeEventHandler<HTMLSelectElement> = (e) => {
         const val = (e.target as HTMLInputElement).value;
         const newSelected = currencies.find(item => item.code === val);
@@ -34,13 +40,11 @@
     const inputHandler: ChangeEventHandler<HTMLInputElement> = () => {
         clearTimeout(timeoutId);
 
-        amount = amount.replaceAll(/[^0-9.]/g, '');
-
         if (!isFinite(Number(amount))) {
             return;
         }
 
-        timeoutId = setTimeout(() => handleChange(), 1000);
+        timeoutId = setTimeout(() => handleChange(), 1200);
     };
 </script>
 

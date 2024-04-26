@@ -40,6 +40,8 @@
     const inputHandler: ChangeEventHandler<HTMLInputElement> = () => {
         clearTimeout(timeoutId);
 
+        amount = trimByPattern(amount);
+
         if (!isFinite(Number(amount))) {
             return;
         }
